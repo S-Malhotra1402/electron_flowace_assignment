@@ -26,7 +26,7 @@ A cross-platform Electron desktop application that demonstrates system resilienc
 
 1. **Clone and install dependencies:**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/S-Malhotra1402/electron_flowace_assignment.git
    cd system-resilient-app
    npm install
    ```
