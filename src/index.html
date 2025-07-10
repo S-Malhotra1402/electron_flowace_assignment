@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Resilient App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .container {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .clock-container {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .clock {
+            font-size: 3em;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            letter-spacing: 2px;
+        }
+
+        .date {
+            font-size: 1.2em;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+
+        .animation-container {
+            margin: 20px 0;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pulse-dot {
+            width: 20px;
+            height: 20px;
+            background: #4CAF50;
+            border-radius: 50%;
+            margin: 0 5px;
+            animation: pulse 2s infinite;
+        }
+
+        .pulse-dot:nth-child(2) {
+            animation-delay: 0.5s;
+        }
+
+        .pulse-dot:nth-child(3) {
+            animation-delay: 1s;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.5;
+            }
+        }
+
+        .controls {
+            margin-top: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            margin: 10px;
+            font-weight: bold;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .status.success {
+            background: rgba(76, 175, 80, 0.2);
+            border-color: #4CAF50;
+        }
+
+        .status.error {
+            background: rgba(244, 67, 54, 0.2);
+            border-color: #F44336;
+        }
+
+        .status.working {
+            background: rgba(255, 193, 7, 0.2);
+            border-color: #FFC107;
+        }
+
+        .platform-info {
+            margin-top: 20px;
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .info-panel {
+            margin-top: 20px;
+            text-align: left;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 0.9em;
+        }
+
+        .info-panel h3 {
+            margin-bottom: 10px;
+            color: #FFD700;
+        }
+
+        .info-panel ul {
+            margin-left: 20px;
+        }
+
+        .info-panel li {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 System Resilient App</h1>
+        
+        <div class="clock-container">
+            <div class="clock" id="clock">00:00:00</div>
+            <div class="date" id="date">Loading...</div>
+        </div>
+
+        <div class="animation-container">
+            <div class="pulse-dot"></div>
+            <div class="pulse-dot"></div>
+            <div class="pulse-dot"></div>
+        </div>
+
+        <div class="controls">
+            <button class="btn" id="startTaskBtn">🚀 Start Heavy Task</button>
+            <button class="btn" id="forceQuitBtn">❌ Force Quit</button>
+        </div>
+
+        <div class="status" id="status">
+            Ready to start background tasks...
+        </div>
+
+        <div class="platform-info" id="platformInfo">
+            Platform: Loading...
+        </div>
+
+        <div class="info-panel">
+            <h3>🛡️ Resilience Features</h3>
+            <ul>
+                <li>Auto-restart on crash or termination</li>
+                <li>Survives system reboot</li>
+                <li>Non-blocking background processing</li>
+                <li>Cross-platform compatibility</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        class SystemResilientUI {
+            constructor() {
+                this.isTaskRunning = false;
+                this.init();
+            }
+
+            init() {
+                this.updateClock();
+                this.setupEventListeners();
+                this.loadPlatformInfo();
+                
+                // Update clock every second
+                setInterval(() => this.updateClock(), 1000);
+            }
+
+            updateClock() {
+                const now = new Date();
+                const timeString = now.toLocaleTimeString();
+                const dateString = now.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                });
+
+                document.getElementById('clock').textContent = timeString;
+                document.getElementById('date').textContent = dateString;
+            }
+
+            async loadPlatformInfo() {
+                try {
+                    const platform = await window.electronAPI.getPlatform();
+                    const platformNames = {
+                        'win32': 'Windows',
+                        'darwin': 'macOS',
+                        'linux': 'Linux'
+                    };
+                    document.getElementById('platformInfo').textContent = 
+                        `Platform: ${platformNames[platform] || platform}`;
+                } catch (error) {
+                    console.error('Failed to load platform info:', error);
+                }
+            }
+
+            setupEventListeners() {
+                document.getElementById('startTaskBtn').addEventListener('click', () => {
+                    this.startHeavyTask();
+                });
+
+                document.getElementById('forceQuitBtn').addEventListener('click', () => {
+                    this.forceQuit();
+                });
+
+                // Test UI responsiveness during task
+                document.addEventListener('mousemove', (e) => {
+                    // Visual feedback that UI is responsive
+                    const container = document.querySelector('.container');
+                    const rect = container.getBoundingClientRect();
+                    const x = ((e.clientX - rect.left) / rect.width - 0.5) * 10;
+                    const y = ((e.clientY - rect.top) / rect.height - 0.5) * 10;
+                    container.style.transform = `rotateX(${y}deg) rotateY(${x}deg)`;
+                });
+
+                document.addEventListener('mouseleave', () => {
+                    document.querySelector('.container').style.transform = 'rotateX(0deg) rotateY(0deg)';
+                });
+            }
+
+            async startHeavyTask() {
+                if (this.isTaskRunning) return;
+
+                this.isTaskRunning = true;
+                const startBtn = document.getElementById('startTaskBtn');
+                const status = document.getElementById('status');
+
+                startBtn.disabled = true;
+                startBtn.textContent = '⏳ Task Running...';
+                
+                status.className = 'status working';
+                status.innerHTML = '<div class="spinner"></div>Heavy task running in background...';
+
+                try {
+                    const result = await window.electronAPI.startHeavyTask();
+                    
+                    if (result.success) {
+                        status.className = 'status success';
+                        status.textContent = '✅ Heavy task completed successfully!';
+                    } else {
+                        status.className = 'status error';
+                        status.textContent = `❌ Task failed: ${result.error}`;
+                    }
+                } catch (error) {
+                    status.className = 'status error';
+                    status.textContent = `❌ Task failed: ${error.message}`;
+                } finally {
+                    this.isTaskRunning = false;
+                    startBtn.disabled = false;
+                    startBtn.textContent = '🚀 Start Heavy Task';
+                    
+                    // Reset status after 5 seconds
+                    setTimeout(() => {
+                        if (status.className.includes('success') || status.className.includes('error')) {
+                            status.className = 'status';
+                            status.textContent = 'Ready to start background tasks...';
+                        }
+                    }, 5000);
+                }
+            }
+
+            async forceQuit() {
+                if (confirm('Are you sure you want to force quit the application?')) {
+                    try {
+                        await window.electronAPI.forceQuit();
+                    } catch (error) {
+                        console.error('Failed to force quit:', error);
+                    }
+                }
+            }
+        }
+
+        // Initialize the UI when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new SystemResilientUI();
+        });
+    </script>
+</body>
+</html> 

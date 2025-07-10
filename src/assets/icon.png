@@ -1,0 +1,7 @@
+# This is a placeholder for the app icon
+# In a real implementation, you would place actual icon files here:
+# - icon.png (Linux)
+# - icon.ico (Windows)
+# - icon.icns (macOS)
+
+# For this demo, the app will work without icons, but you may see warnings in the console. 
