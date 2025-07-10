@@ -2,7 +2,7 @@
 
 A cross-platform Electron desktop application that demonstrates system resilience through auto-restart capabilities and non-blocking background processing.
 
-## 🎯 Features
+## Features
 
 ### High-Availability Behavior (Self-Restart)
 - **Auto-restart on termination**: App automatically restarts if closed, crashed, or killed
@@ -16,7 +16,7 @@ A cross-platform Electron desktop application that demonstrates system resilienc
 - **Responsive interactions**: Window dragging, button clicks remain instant
 - **Multi-threaded processing**: Background tasks run in separate processes
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js (v16 or higher)
@@ -46,7 +46,7 @@ A cross-platform Electron desktop application that demonstrates system resilienc
    npm run build
    ```
 
-## 🖥️ Platform-Specific Setup
+## Platform-Specific Setup
 
 ### Windows 10+
 
@@ -110,7 +110,7 @@ rm ~/.config/systemd/user/system-resilient-app.service
 rm ~/.config/autostart/system-resilient-app.desktop
 ```
 
-## 🔧 Technical Implementation
+## Technical Implementation
 
 ### Self-Restart Mechanism
 
@@ -132,15 +132,16 @@ Background tasks are handled through:
 
 ### Background Task Details
 
-The heavy task includes three CPU-intensive operations:
+The heavy task includes four CPU-intensive operations:
 
-1. **Prime Number Generation**: Calculates 1000 large prime numbers
-2. **File I/O**: Generates a 100MB random data file
-3. **JSON Processing**: Creates and processes 100,000 JSON records
+1. **Prime Number Generation**: Calculates 10,000 large prime numbers
+2. **File I/O**: Generates a 500MB random data file
+3. **JSON Processing**: Creates and processes 500,000 JSON records
+4. **Complex Mathematical Operations**: Matrix multiplication, Fibonacci calculations, and hash computations
 
 Total execution time: 30-45 seconds (varies by system performance)
 
-## 🎨 User Interface
+## User Interface
 
 ### Live Elements
 - **Digital Clock**: Updates every second with current time
@@ -152,7 +153,7 @@ Total execution time: 30-45 seconds (varies by system performance)
 - **Start Heavy Task**: Launches CPU-intensive background process
 - **Force Quit**: Properly terminates the application (disables auto-restart)
 
-## 🛡️ Security & Safety
+## Security & Safety
 
 ### Resource Management
 - **Memory Limits**: Background tasks are designed to complete and exit
@@ -166,7 +167,7 @@ Total execution time: 30-45 seconds (varies by system performance)
 - **Exception Handling**: Uncaught exceptions trigger controlled restart
 - **User Control**: Force quit option always available
 
-## 📊 Performance Characteristics
+## Performance Characteristics
 
 ### System Impact
 - **CPU Usage**: Heavy tasks utilize available CPU cores efficiently
@@ -180,7 +181,7 @@ Total execution time: 30-45 seconds (varies by system performance)
 - **Animation Smoothness**: CSS animations continue uninterrupted
 - **Window Operations**: Drag, resize, minimize remain instant
 
-## 🔍 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -249,23 +250,45 @@ This enables:
    - Verify UI animations continue smoothly
    - Test window dragging during background processing
 
-## 📄 License
+## License
 
 MIT License - Feel free to use this code for educational or commercial purposes.
 
-## 🤝 Contributing
+## Contributing
 
-This is a take-home assignment project. For production use, consider:
+For production use, consider:
 - Adding more robust error handling
 - Implementing proper logging
 - Adding configuration options
 - Including automated tests
-- Adding more sophisticated background tasks
+- Adding more sophisticated background tasks 
 
-## 📞 Support
+## Architecture Overview
 
-For issues or questions about this implementation:
-1. Check the troubleshooting section
-2. Review console logs for error messages
-3. Test on a clean system to isolate issues
-4. Verify all prerequisites are met 
+### Core Components
+
+**`worker.js`** - Background Task Handler
+- Contains all 4 background tasks:
+  1. Prime number generation (10,000 primes)
+  2. File generation (500MB random data)
+  3. JSON processing (500,000 records)
+  4. Complex calculations (matrix ops, Fibonacci, hashing)
+- Runs as a separate Node.js process
+- Takes ~35 seconds to complete
+- Handles all CPU-intensive operations
+
+**`preload.js`** - Security Layer
+- Provides secure communication between UI and main process
+- Exposes safe functions to the web page:
+  - `startHeavyTask()` - Triggers the worker process
+  - `getPlatform()` - Gets OS platform info
+  - `forceQuit()` - Safely closes the app
+
+**`main.js`** - Application Controller
+- Orchestrates everything and spawns worker processes
+- Manages window lifecycle and restart mechanisms
+- Handles platform-specific resilience features
+
+**`index.html`** - User Interface
+- Provides the visual interface for user interactions
+- Calls APIs through the preload security layer

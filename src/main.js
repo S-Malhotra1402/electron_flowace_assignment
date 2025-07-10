@@ -38,23 +38,46 @@ class SystemResilientApp {
     });
 
     app.on('window-all-closed', () => {
-      if (!this.isQuitting) {
-        // Don't quit the app, just hide the window
-        this.createWindow();
+      // On macOS, keep app running even when all windows are closed
+      if (process.platform !== 'darwin') {
+        if (!this.isQuitting) {
+          // On Windows/Linux, recreate window immediately
+          setTimeout(() => {
+            this.createWindow();
+          }, 1000);
+        }
       }
+      // On macOS, app stays running in dock
     });
 
     app.on('activate', () => {
+      // On macOS, re-create window when dock icon is clicked
       if (BrowserWindow.getAllWindows().length === 0) {
         this.createWindow();
+      } else if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+        // Show existing window if it's hidden
+        this.mainWindow.show();
+        this.mainWindow.focus();
       }
     });
 
-    // Prevent normal quit behavior
+    // Handle app quit attempts
     app.on('before-quit', (event) => {
       if (!this.isQuitting) {
+        console.log('App quit prevented - resilience mode active');
         event.preventDefault();
-        this.mainWindow?.hide();
+        
+        // Hide window instead of quitting
+        if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+          this.mainWindow.hide();
+        }
+        
+        // On non-macOS systems, recreate window after a delay
+        if (process.platform !== 'darwin') {
+          setTimeout(() => {
+            this.createWindow();
+          }, 2000);
+        }
       }
     });
 
@@ -73,6 +96,7 @@ class SystemResilientApp {
   createWindow() {
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
       this.mainWindow.show();
+      this.mainWindow.focus();
       return;
     }
 
@@ -89,20 +113,47 @@ class SystemResilientApp {
 
     this.mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
-    // Prevent window from being closed
+    // Handle window close button
     this.mainWindow.on('close', (event) => {
       if (!this.isQuitting) {
+        console.log('Window close prevented - resilience mode active');
         event.preventDefault();
-        this.mainWindow.hide();
+        
+        if (process.platform === 'darwin') {
+          // On macOS, hide window (app stays in dock)
+          this.mainWindow.hide();
+        } else {
+          // On Windows/Linux, hide and recreate after delay
+          this.mainWindow.hide();
+          setTimeout(() => {
+            if (!this.isQuitting) {
+              this.createWindow();
+            }
+          }, 2000);
+        }
       }
     });
 
+    // Handle window destruction
     this.mainWindow.on('closed', () => {
+      this.mainWindow = null;
       if (!this.isQuitting) {
-        // Window was force closed, recreate it
+        console.log('Window was destroyed - recreating...');
         setTimeout(() => {
           this.createWindow();
         }, 1000);
+      }
+    });
+
+    // Add resilience notification
+    this.mainWindow.once('ready-to-show', () => {
+      this.mainWindow.show();
+      this.mainWindow.focus();
+      
+      // Show resilience status in dev mode
+      if (this.isDev) {
+        console.log('🛡️ Resilience mode: Active');
+        console.log('💡 To truly quit: Use Force Quit button or kill process');
       }
     });
 
