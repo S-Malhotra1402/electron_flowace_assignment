@@ -11,6 +11,10 @@ class SystemResilientApp {
     this.restartMechanismSetup = false;
     this.platform = os.platform();
     this.isDev = process.argv.includes('--dev');
+    this.isHeadlessMode = false;
+    
+    // Clean up any existing intentional quit signal
+    this.cleanupQuitSignal();
     
     this.setupApp();
   }
@@ -24,6 +28,7 @@ class SystemResilientApp {
       return;
     }
 
+    // Prevents multiple instances of your app from running
     app.on('second-instance', () => {
       if (this.mainWindow) {
         if (this.mainWindow.isMinimized()) this.mainWindow.restore();
@@ -35,6 +40,11 @@ class SystemResilientApp {
       this.createWindow();
       this.setupRestartMechanism();
       this.setupIPC();
+      
+      // Prevent any focus stealing when in monitor restart mode
+      if (process.env.MONITOR_RESTART === '1') {
+        app.dock?.hide(); // Hide from dock completely
+      }
     });
 
     app.on('window-all-closed', () => {
@@ -51,8 +61,24 @@ class SystemResilientApp {
     });
 
     app.on('activate', () => {
+      // Don't respond to activate events if we're in monitor restart mode
+      if (process.env.MONITOR_RESTART === '1') {
+        console.log(' Ignoring activate event - monitor restart mode');
+        return;
+      }
+      
       // On macOS, re-create window when dock icon is clicked
-      if (BrowserWindow.getAllWindows().length === 0) {
+      if (this.isHeadlessMode || BrowserWindow.getAllWindows().length === 0) {
+        // Either in headless mode or no windows exist - create a new normal window
+        console.log(' Creating window from headless mode');
+        delete process.env.MONITOR_RESTART; // Ensure it's treated as normal startup
+        this.isHeadlessMode = false;
+        
+        // Show dock icon again
+        if (app.dock) {
+          app.dock.show();
+        }
+        
         this.createWindow();
       } else if (this.mainWindow && !this.mainWindow.isDestroyed()) {
         // Show existing window if it's hidden
@@ -94,12 +120,36 @@ class SystemResilientApp {
   }
 
   createWindow() {
+    const isMonitorRestart = process.env.MONITOR_RESTART === '1';
+    
     if (this.mainWindow && !this.mainWindow.isDestroyed()) {
-      this.mainWindow.show();
-      this.mainWindow.focus();
+      // Only show/focus if not started by monitor
+      if (!isMonitorRestart) {
+        this.mainWindow.show();
+        this.mainWindow.focus();
+      }
       return;
     }
 
+    // If started by monitor, don't create any window at all - pure headless mode
+    if (isMonitorRestart) {
+      console.log(' App restarted by monitor (pure headless mode - no window)');
+      console.log(' App running in background - click dock icon to show window');
+      
+      // Set a flag to indicate we're in headless mode
+      this.isHeadlessMode = true;
+      this.mainWindow = null; // No window at all
+      
+      // Hide from dock to prevent any visual indication
+      if (app.dock) {
+        app.dock.hide();
+      }
+      
+      return;
+    }
+
+    // Normal startup - create regular window
+    this.isHeadlessMode = false;
     this.mainWindow = new BrowserWindow({
       width: 800,
       height: 600,
@@ -108,10 +158,25 @@ class SystemResilientApp {
         contextIsolation: true,
         preload: path.join(__dirname, 'preload.js')
       },
-      icon: this.getAppIcon()
+      icon: this.getAppIcon(),
+      show: false,
+      minimizable: true,
+      resizable: true
     });
 
     this.mainWindow.loadFile(path.join(__dirname, 'index.html'));
+
+    // Handle normal window showing
+    this.mainWindow.once('ready-to-show', () => {
+      this.mainWindow.show();
+      this.mainWindow.focus();
+      
+      // Show resilience status in dev mode
+      if (this.isDev) {
+        console.log(' Resilience mode: Active');
+        console.log(' To truly quit: Use Force Quit button or kill process');
+      }
+    });
 
     // Handle window close button
     this.mainWindow.on('close', (event) => {
@@ -145,19 +210,7 @@ class SystemResilientApp {
       }
     });
 
-    // Add resilience notification
-    this.mainWindow.once('ready-to-show', () => {
-      this.mainWindow.show();
-      this.mainWindow.focus();
-      
-      // Show resilience status in dev mode
-      if (this.isDev) {
-        console.log('🛡️ Resilience mode: Active');
-        console.log('💡 To truly quit: Use Force Quit button or kill process');
-      }
-    });
-
-    if (this.isDev) {
+    if (this.isDev && !isMonitorRestart) {
       this.mainWindow.webContents.openDevTools();
     }
   }
@@ -240,46 +293,51 @@ if "%ERRORLEVEL%"=="0" (
   }
 
   async setupMacOSRestart() {
-    const appPath = process.execPath;
-    const plistContent = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>com.example.systemresilientapp</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>${appPath}</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-    <key>KeepAlive</key>
-    <true/>
-    <key>StandardErrorPath</key>
-    <string>/tmp/systemresilientapp.err</string>
-    <key>StandardOutPath</key>
-    <string>/tmp/systemresilientapp.out</string>
-</dict>
-</plist>`;
+    console.log('🔄 Setting up heartbeat-based restart mechanism (no Launch Agent)');
+    
+    // Start heartbeat system instead of Launch Agent
+    this.startHeartbeat();
+    
+    console.log(' Heartbeat system enabled — app will restart if crashed/killed');
+  }
 
-    const launchAgentsDir = path.join(os.homedir(), 'Library', 'LaunchAgents');
-    const plistPath = path.join(launchAgentsDir, 'com.example.systemresilientapp.plist');
-
-    try {
-      if (!fs.existsSync(launchAgentsDir)) {
-        fs.mkdirSync(launchAgentsDir, { recursive: true });
+  startHeartbeat() {
+    const heartbeatFile = '/tmp/resilient_app_heartbeat';
+    
+    // Update heartbeat every 1 second
+    this.heartbeatInterval = setInterval(() => {
+      try {
+        // Write current timestamp to heartbeat file
+        fs.writeFileSync(heartbeatFile, Date.now().toString());
+      } catch (error) {
+        console.error('Failed to write heartbeat:', error);
       }
-      
-      fs.writeFileSync(plistPath, plistContent);
-      
-      // Load the launch agent
-      exec(`launchctl load ${plistPath}`, (error) => {
-        if (error) {
-          console.error('Failed to load macOS launch agent:', error);
-        }
-      });
+    }, 1000); // 1 second
+    
+    // Write initial heartbeat
+    try {
+      fs.writeFileSync(heartbeatFile, Date.now().toString());
+      console.log(' Heartbeat started - updating every 1 second');
     } catch (error) {
-      console.error('Failed to setup macOS restart mechanism:', error);
+      console.error('Failed to start heartbeat:', error);
+    }
+  }
+
+  stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+      
+      // Remove heartbeat file
+      try {
+        const heartbeatFile = '/tmp/resilient_app_heartbeat';
+        if (fs.existsSync(heartbeatFile)) {
+          fs.unlinkSync(heartbeatFile);
+        }
+        console.log(' Heartbeat stopped');
+      } catch (error) {
+        console.error('Failed to stop heartbeat:', error);
+      }
     }
   }
 
@@ -354,15 +412,29 @@ X-GNOME-Autostart-enabled=true`;
     ipcMain.handle('start-heavy-task', async () => {
       return new Promise((resolve) => {
         // Start CPU-intensive task in a separate process
-        const worker = spawn(process.execPath, [path.join(__dirname, 'worker.js')], {
-          stdio: 'pipe'
+        const workerPath = path.join(__dirname, 'worker.js');
+        
+        // Use Electron's node executable for consistency
+        const worker = spawn(process.execPath, [workerPath], {
+          stdio: 'pipe',
+          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' }
+        });
+
+        worker.stdout.on('data', (data) => {
+          console.log('Worker output:', data.toString());
+        });
+
+        worker.stderr.on('data', (data) => {
+          console.error('Worker error:', data.toString());
         });
 
         worker.on('close', (code) => {
+          console.log(`Worker process exited with code ${code}`);
           resolve({ success: true, code });
         });
 
         worker.on('error', (error) => {
+          console.error('Worker spawn error:', error);
           resolve({ success: false, error: error.message });
         });
       });
@@ -374,6 +446,19 @@ X-GNOME-Autostart-enabled=true`;
 
     ipcMain.handle('force-quit', () => {
       this.isQuitting = true;
+      
+      // Stop heartbeat system
+      this.stopHeartbeat();
+      
+      // Create a signal file to tell the monitor this is an intentional quit
+      const signalFile = '/tmp/intentional_quit.signal';
+      try {
+        fs.writeFileSync(signalFile, Date.now().toString());
+        console.log(' Intentional quit signaled - app will not auto-restart');
+      } catch (error) {
+        console.error('Failed to create quit signal:', error);
+      }
+      
       app.quit();
     });
   }
@@ -384,6 +469,18 @@ X-GNOME-Autostart-enabled=true`;
       this.isQuitting = true;
       app.exit(0);
     }, 1000);
+  }
+
+  cleanupQuitSignal() {
+    const signalFile = '/tmp/intentional_quit.signal';
+    try {
+      if (fs.existsSync(signalFile)) {
+        fs.unlinkSync(signalFile);
+        console.log('🧹 Cleaned up previous quit signal');
+      }
+    } catch (error) {
+      console.error('Failed to cleanup quit signal:', error);
+    }
   }
 }
 

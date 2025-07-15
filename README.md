@@ -5,9 +5,12 @@ A cross-platform Electron desktop application that demonstrates system resilienc
 ## Features
 
 ### High-Availability Behavior (Self-Restart)
-- **Auto-restart on termination**: App automatically restarts if closed, crashed, or killed
+- **Enhanced auto-restart**: App automatically restarts if closed, crashed, or killed via system utilities
+- **Intelligent restart logic**: Only restarts on unexpected termination, not normal exits
+- **Crash detection**: Advanced monitoring detects and recovers from application crashes
+- **Throttle protection**: 5-second delay between restart attempts prevents rapid cycling
 - **Survives system reboot**: Configured to start automatically after system restart
-- **Cross-platform support**: Works on Windows 10+, macOS Monterey+, and Ubuntu/Debian Linux
+- **Cross-platform support**: Works on Windows 10+, macOS 10.10+, and Ubuntu/Debian Linux
 - **No third-party dependencies**: Uses native OS mechanisms for persistence
 
 ### Non-Blocking Background Processing
@@ -68,19 +71,55 @@ schtasks /delete /tn "SystemResilientApp" /f
 reg delete "HKCU\Software\Microsoft\Windows\CurrentVersion\Run" /v "SystemResilientApp" /f
 ```
 
-### macOS (Monterey+)
+### macOS (All Modern Versions - 10.10+)
 
 **How it works:**
-- Creates a Launch Agent plist file in `~/Library/LaunchAgents/`
+- Creates an enhanced Launch Agent plist file in `~/Library/LaunchAgents/`
 - Uses `launchctl` to load and manage the service
-- `KeepAlive` property ensures automatic restart
+- **Enhanced KeepAlive configuration** with crash detection
+- **Intelligent restart logic**: Only restarts on crashes/kills, not normal exits
+- **Throttling protection**: 5-second delay between restart attempts
+- **Health monitoring**: Continuous process monitoring every 10 seconds
 - Survives user logout/login and system reboot
 
-**Manual verification:**
-1. Run the app to create the launch agent
-2. Kill the app using Activity Monitor or `killall`
-3. App should restart automatically within 5 seconds
-4. Check: `launchctl list | grep systemresilientapp`
+**Enhanced Features:**
+```xml
+<key>KeepAlive</key>
+<dict>
+    <key>SuccessfulExit</key>
+    <false/>           <!-- Don't restart on normal exit -->
+    <key>Crashed</key>
+    <true/>            <!-- DO restart on crashes/kills -->
+</dict>
+<key>ThrottleInterval</key>
+<integer>5</integer>   <!-- 5-second restart delay -->
+```
+
+**Testing Auto-Restart:**
+1. **Force Kill via Terminal:**
+   ```bash
+   pkill -f "System Resilient App"
+   # App restarts automatically within 5-10 seconds
+   ```
+
+2. **Force Kill via Activity Monitor:**
+   - Open Activity Monitor (⌘ + Space → "Activity Monitor")
+   - Find "System Resilient App"
+   - Click Force Quit
+   - Watch automatic restart
+
+3. **Verify Service Status:**
+   ```bash
+   launchctl list | grep systemresilientapp
+   ```
+
+**Compatibility:**
+- ✅ macOS 10.10+ (Yosemite and later)
+- ✅ macOS 11 (Big Sur)
+- ✅ macOS 12 (Monterey)
+- ✅ macOS 13 (Ventura)
+- ✅ macOS 14 (Sonoma)
+- ✅ macOS 15 (Sequoia)
 
 **Cleanup (if needed):**
 ```bash
@@ -189,6 +228,9 @@ Total execution time: 30-45 seconds (varies by system performance)
 - Check if restart mechanism was properly set up
 - Verify permissions for creating scheduled tasks/services
 - Look for error messages in console logs
+- **macOS specific**: Check if Launch Agent is loaded: `launchctl list | grep systemresilientapp`
+- **macOS specific**: Check console output: ✅ should show "macOS auto-restart enabled"
+- **Throttling**: Wait 5-10 seconds - throttling prevents immediate restart
 
 **Background task not starting:**
 - Ensure `worker.js` is present in the `src` directory
@@ -211,6 +253,16 @@ This enables:
 - Console logging
 - Error reporting
 - Performance monitoring
+
+### Expected Console Output
+When the app starts successfully, you should see:
+```
+✅ macOS auto-restart enabled - app will restart if killed/crashed
+🛡️ Resilience mode: Active
+💡 To truly quit: Use Force Quit button or kill process
+```
+
+This indicates the enhanced auto-restart mechanism is properly configured and active.
 
 ## 📋 System Requirements
 
@@ -235,10 +287,12 @@ This enables:
    - Click "Start Heavy Task", verify UI remains responsive
    - Move mouse around to test 3D effects
 
-2. **Restart Resilience**:
-   - Kill app via system task manager
-   - Verify app restarts within 5 seconds
-   - Test multiple kill scenarios
+2. **Enhanced Restart Resilience**:
+   - Kill app via system task manager/Activity Monitor
+   - Verify app restarts within 5-10 seconds
+   - Test force kill via terminal commands
+   - Test crash simulation scenarios
+   - Verify intelligent restart (won't restart on normal exit)
 
 3. **Reboot Persistence**:
    - Restart computer
